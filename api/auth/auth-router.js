@@ -1,7 +1,22 @@
-const router = require('express').Router();
+const { userNameVarmı, usernameBostamı } = require("./auth-middleware");
+const User = require("../users/user-model");
+const router = require("express").Router();
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET } = require("../../secrets");
 
-router.post('/register', (req, res) => {
-  res.end('kayıt olmayı ekleyin, lütfen!');
+router.post("/register", usernameBostamı, async (req, res, next) => {
+  //elimizde username
+  try {
+    const { username, password } = req.body;
+
+    const newUser = { username: username, password: req.hashedPassword };
+    const insertedUser = await User.insert(newUser);
+    res.json(insertedUser);
+  } catch (error) {
+    next(error);
+  }
+
   /*
     EKLEYİN
     Uçnoktanın işlevselliğine yardımcı olmak için middlewarelar yazabilirsiniz.
@@ -29,8 +44,24 @@ router.post('/register', (req, res) => {
   */
 });
 
-router.post('/login', (req, res) => {
-  res.end('girişi ekleyin, lütfen!');
+router.post("/login", userNameVarmı, (req, res) => {
+  const { password } = req.body;
+  //compareSync fonksiypnu hashlenmiş password istemiyor, zaten databasede passwordler hashlenmiş şekilde duruyor. databasedeki hashlenmiş passwordu çekiyor.
+  if (req.user && bcrypt.compareSync(password, req.user.password)) {
+    const payload = {
+      //tokenın içine data saklıyoruz, bu şekilde encode edicez, başka bieyerde decode edip kullanıcaz
+      id: req.user.id,
+      username: req.user.username,
+      password: req.user.password,
+    };
+    const options = {
+      expiresIn: "24h",
+    };
+    const token = jwt.sign(payload, JWT_SECRET, options);
+    res.json({ message: `${req.user.username} geri geldi`, token: token });
+  } else {
+    res.status(401).json({ message: "geçersiz kriter" });
+  }
   /*
     EKLEYİN
     Uçnoktanın işlevselliğine yardımcı olmak için middlewarelar yazabilirsiniz.
